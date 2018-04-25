@@ -12,8 +12,6 @@
     "preserveConstEnums": true,
     "removeComments": true,
     "inlineSourceMap": true,
-    "strictNullChecks": false,
-    "suppressImplicitAnyIndexErrors": true,
     "typeRoots": [
       "./node_modules/@types"
     ]

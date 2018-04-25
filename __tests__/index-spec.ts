@@ -1,5 +1,5 @@
 import * as index from '../src/index';
 
 test('Should have Greeter available', () => {
-  expect(index.PoolAPI).toBeTruthy();
+  expect(index.API).toBeTruthy();
 });
