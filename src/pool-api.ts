@@ -228,7 +228,9 @@ export class API {
     }
 
     let multi = promisify(redis.multi).bind(redis);
+    console.log("before multi");
     let replies = await multi(redisCommands);
+    console.log("after multi");
 
     let addresses = Object.keys(this.addressConnections);
     addresses.forEach((address, i) => {
@@ -284,7 +286,7 @@ export class API {
   async getAddressStatus(redis: RedisClient, coin: string, address: string) {
     const hgetall = promisify(redis.hgetall).bind(redis);
     let status = await hgetall([coin, 'workers', address].join(':'));
-    if (Object.keys(status).length) {
+    if (status && Object.keys(status).length) {
       status.hashrate = this.minerStats[address];
       return status;
     }
@@ -292,8 +294,9 @@ export class API {
   }
 
   async getAddressPayments(redis: RedisClient, coin: string, address: string) {
+    let payments = _.get(this.config, 'api.payments');
     const zrevrange = promisify(redis.zrevrange).bind(redis);
-    return zrevrange([coin, 'payments', address].join(':'));
+    return zrevrange([coin, 'payments', address].join(':'), 0, payments - 1, 'WITHSCORES');
   }
 
   getHashrate(address: string) {

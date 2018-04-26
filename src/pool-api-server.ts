@@ -254,6 +254,7 @@ export class Server {
     }
 
     async onGetPayments(req: Request, res: Response) {
+        
         const coin = this.config.coin;
         const payments = this.config.api.payments;
         let keys = [this.config.coin, 'payments'];
@@ -264,7 +265,7 @@ export class Server {
         }
         try {
             let score = promisify(this.redis.zrevrangebyscore).bind(this.redis);
-            let json = score(keys.join(':'),
+            let json = await score(keys.join(':'),
                 '(' + req.query.time,
                 '-inf',
                 'WITHSCORES',
@@ -274,27 +275,24 @@ export class Server {
             );
             res.json(json);
         } catch (e) {
+            console.log(e);
             res.json({
                 error: 'query failed'
             });
         }
     }
 
-
     async onAddressStats(req: Request, res: Response) {
-        res.writeHead(200, {
-            'Connection': 'keep-alive'
-        });
-
-        res.write('\n');
-
         const { address, longpoll } = req.query;
+        if (!address) {
+            res.status(403).end();
+            return;
+        }
 
+        res.set('Connection', 'keep-alive');
         let status = await this.api.getAddressStatus(this.redis, this.config.coin, address);
-
         let payments = await this.api.getAddressPayments(this.redis, this.config.coin, address);
         let charts = await this.charts.getUserCharts(this.redis, this.config.coin, address);
-
         res.json({
             stats: status,
             payments,

@@ -18,37 +18,50 @@ const server = new Server(app, config, redis, {}, '1.0');
 let http: any;
 
 test('Should create server', () => {
-  expect(server).toBeTruthy();
+    expect(server).toBeTruthy();
 });
 
 test('Should start', async () => {
-  http = await server.start()
-  expect(http).toBeTruthy();
+    http = await server.start()
+    expect(http).toBeTruthy();
 });
 
 test('Should app get stats', () => {
-  return request(app)
-    .get('/stats').expect(200);
+    return request(app)
+        .get('/stats').expect(200);
 });
 
 test('Should app get live stats', (done) => {
-  let api = server.getApi();
-  request(app)
-    .get('/live_stats').then((res) => {
-      expect(res.statusCode).toBe(200);
-      done();
-    });
-  setTimeout(() => {
-    api.sendConnections();
-  }, 100);
+    let api = server.getApi();
+    request(app)
+        .get('/live_stats').then((res) => {
+            expect(res.statusCode).toBe(200);
+            done();
+        });
+    setTimeout(() => {
+        api.sendConnections();
+    }, 100);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/stats_address')
-//     .expect(200)
-//     .end(done);
-// });
+test('Should app address stats', () => {
+    return request(app)
+        .get('/stats_address').expect(403);
+});
+
+test('Should app address stats 2', () => {
+    return request(app)
+        .get('/stats_address').query({ address: 'aaa', longpoll: false }).expect(200);
+});
+
+test('Should get payments all', () => {
+    return request(app)
+        .get('/get_payments').query({ time: Date.now() }).expect(200);
+});
+
+test('Should get payments address', () => {
+    return request(app)
+        .get('/get_payments').query({ address: 'aaa', time: Date.now() }).expect(200);
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)
@@ -100,9 +113,9 @@ test('Should app get live stats', (done) => {
 // });
 
 test('Should quit server', () => {
-  http.close();
+    http.close();
 });
 
 test('Should close all', () => {
-  redis.quit();
+    redis.quit();
 });
