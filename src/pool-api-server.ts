@@ -92,9 +92,7 @@ export class Server {
         const router = Router();
 
         const isAdmin = (req: Request, res: Response, next: Function) => {
-
-            if ((req.connection.remoteAddress == '127.0.01') ||
-                (req.query.password === this.config.api.password)) {
+            if (req.query.password === this.config.api.password) {
                 next();
                 return;
             }
@@ -186,19 +184,20 @@ export class Server {
     }
 
     async onAdminStatus(req: Request, res: Response) {
-        let multi = promisify(this.redis.multi).bind(this.redis);
         const coin = this.config.coin;
-        const data = await multi([
-            ['keys', coin + ':workers:*'],
-            ['zrange', coin + ':blocks:matured', 0, -1]
-        ]);
-        const workers = data[0];
-        const blocks = data[1];
 
-        const redisCommands = workers.map((key: string) => {
-            return ['hmget', key, 'balance', 'paid'];
+        let keys = promisify(this.redis.keys).bind(this.redis);
+        const workers = await keys(coin + ':workers:*');
+        let zrange = promisify(this.redis.zrange).bind(this.redis);
+
+        const blocks = await zrange(coin + ':blocks:matured', 0, -1);
+
+        let multi = promisify(this.redis.multi).bind(this.redis);
+
+        const workerPaid = workers.map(async (key: string) => {
+            let hmget = promisify(this.redis.hmget).bind(this.redis);
+            return hmget(key, 'balance', 'paid');
         })
-        const workerPaid = await multi(redisCommands);
         let stats = {
             totalOwed: 0,
             totalPaid: 0,
@@ -255,7 +254,7 @@ export class Server {
     }
 
     async onGetPayments(req: Request, res: Response) {
-        
+
         const coin = this.config.coin;
         const payments = this.config.api.payments;
         let keys = [this.config.coin, 'payments'];

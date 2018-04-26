@@ -69,12 +69,14 @@ test('Should get blocks', () => {
         .get('/get_blocks').query({ time: Date.now() }).expect(200);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/get_blocks')
-//     .expect(200)
-//     .end(done);
-// });
+test('Should get admin status failed', () => {
+    return request(app)
+        .get('/admin_stats').query({ time: Date.now() }).expect(401);
+});
+
+test('Should get admin status ok', () => {
+    return request(app).get('/admin_stats').query({ password: 1234}).expect(200);
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)
