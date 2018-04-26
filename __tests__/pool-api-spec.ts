@@ -101,8 +101,13 @@ test('Should get admin log', (done) => {
 
 });
 
-test('Should get admin log  none exist', () => {
+test('Should get admin users', () => {
     return request(app).get('/admin_users').query({ password: 1234}).expect(200);
+});
+
+
+test('Should get admin get miners hashrates', () => {
+    return request(app).get('/miners_hashrate').query({ password: 1234}).expect(200);
 });
 
 // test('Should app get stats', (done) => {

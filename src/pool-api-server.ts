@@ -111,8 +111,8 @@ export class Server {
         router.all('/admin_users', isAdmin, async (req, res) => {
             await this.onAdminUsers(req, res);
         });
-        router.all('/miners_hashrate', isAdmin, async (req, res) => {
-            await this.onAdminHashrate(req, res);
+        router.all('/miners_hashrate', isAdmin, (req, res) => {
+            this.onAdminHashrate(req, res);
         });
         app.use(router);
     }
