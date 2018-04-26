@@ -63,12 +63,11 @@ test('Should get payments address', () => {
         .get('/get_payments').query({ address: 'aaa', time: Date.now() }).expect(200);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/get_payments')
-//     .expect(200)
-//     .end(done);
-// });
+
+test('Should get blocks', () => {
+    return request(app)
+        .get('/get_blocks').query({ time: Date.now() }).expect(200);
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)

@@ -235,10 +235,11 @@ export class Server {
         const coin = this.config.coin;
         const blocks = this.config.api.blocks;
         let keys = [this.config.coin, 'blocks', 'matured'];
+        let height = parseFloat(req.query.height);
         try {
             let score = promisify(this.redis.zrevrangebyscore).bind(this.redis);
-            let json = score(keys.join(':'),
-                '(' + req.query.height,
+            let json = await score(keys.join(':'),
+                '(' + height,
                 '-inf',
                 'WITHSCORES',
                 'LIMIT',
