@@ -163,24 +163,22 @@ export class Server {
     async onAdminMonitor(req: Request, res: Response) {
         const coin = this.config.coin;
         const modules = Object.keys(this.config.monitoring);
-        let redisCommands = []
-        for (const key of modules) {
-            redisCommands.push(['hgetall',
-                [coin, 'status', key].join(':')]);
+        let results = []
+                let hgetall = promisify(this.redis.hgetall).bind(this.redis);
 
+        for (const key of modules) {
+            results.push(await hgetall([coin, 'status', key].join(':')));
         }
-        let multi = promisify(this.redis.multi).bind(this.redis);
-        let results = await multi(redisCommands);
         const stats: any = {};
         results.forEach((e: any, i: number) => {
             if (e) {
                 stats[modules[i]] = e;
             }
         });
-        return {
+        res.json({
             monitoring: stats,
             logs: await this.logger.getStatus()
-        };
+        });
     }
 
     async onAdminStatus(req: Request, res: Response) {

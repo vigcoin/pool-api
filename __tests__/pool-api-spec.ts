@@ -78,12 +78,9 @@ test('Should get admin status ok', () => {
     return request(app).get('/admin_stats').query({ password: 1234}).expect(200);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/admin_stats')
-//     .expect(200)
-//     .end(done);
-// });
+test('Should get admin monitoring', () => {
+    return request(app).get('/admin_monitoring').query({ password: 1234}).expect(200);
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)
