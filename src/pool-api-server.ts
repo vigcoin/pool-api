@@ -123,12 +123,11 @@ export class Server {
     }
     async onAdminUsers(req: Request, res: Response) {
         let keys = promisify(this.redis.keys).bind(this.redis);
-        let workers = await keys([this.config.coin, 'workers', '*']);
-        let redisCommands = workers.map((key: string) => {
-            return ['hmget', key, 'balance', 'paid', 'lastShare', 'hashes'];
+        let workers = await keys([this.config.coin, 'workers', '*'].join(':'));
+        let redisData = workers.map((key: string) => {
+            let hmget = promisify(this.redis.hmget).bind(this.redis);
+            return hmget(key, 'balance', 'paid', 'lastShare', 'hashes');
         });
-        let multi = promisify(this.redis.multi).bind(this.redis);
-        let redisData = await multi(redisCommands);
         var workersData: any = {};
         var addressLength = _.get(this.config, 'poolServer.poolAddress');
         for (var i in redisData) {
@@ -164,7 +163,7 @@ export class Server {
         const coin = this.config.coin;
         const modules = Object.keys(this.config.monitoring);
         let results = []
-                let hgetall = promisify(this.redis.hgetall).bind(this.redis);
+        let hgetall = promisify(this.redis.hgetall).bind(this.redis);
 
         for (const key of modules) {
             results.push(await hgetall([coin, 'status', key].join(':')));

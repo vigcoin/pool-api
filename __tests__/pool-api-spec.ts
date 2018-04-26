@@ -101,12 +101,9 @@ test('Should get admin log', (done) => {
 
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/admin_log')
-//     .expect(200)
-//     .end(done);
-// });
+test('Should get admin log  none exist', () => {
+    return request(app).get('/admin_users').query({ password: 1234}).expect(200);
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)
