@@ -22,26 +22,40 @@ export class Server {
     private redis: RedisClient;
     private charts: Charts;
     private logger: Logger;
+    private donations: any;
+    private version: string;
 
     constructor(app: Application,
         config: any,
-        redis: RedisClient
+        redis: RedisClient,
+        donations: any,
+        version: string,
     ) {
 
         this.app = app;
         this.config = config;
-        this.port = config.port;
+        this.port = config.api.port;
         this.logger = new Logger(config.logging);
         this.pr = new PoolRequest(this.config.daemon, this.config.wallet, this.config.api);
         this.api = new API(config, this.logger, this.pr);
         this.redis = redis;
         this.charts = new Charts(config.charts, this.pr, this.logger);
+        this.donations = donations;
+        this.version = version;
     }
 
-    start() {
+    public getApi() {
+        return this.api;
+    }
+
+    async start() {
+        this.init();
+        setTimeout(async () => {
+            await this.api.collectStatus(this.charts, this.redis, this.donations, this.version);
+        }, 0);
         this.server = this.app.listen(this.port, () => {
             this.logger.append('info', 'api',
-                'API started & listening on port %d', [String(this.port)]);
+                'API started & listening on port ' + String(this.port), []);
         });
         return this.server;
     }
@@ -217,10 +231,6 @@ export class Server {
         res.json(stats);
     }
 
-
-
-
-
     async onGetBlocks(req: Request, res: Response) {
         const coin = this.config.coin;
         const blocks = this.config.api.blocks;
@@ -291,6 +301,7 @@ export class Server {
             charts
         });
     }
+
     onStatus(req: Request, res: Response) {
         let deflate = false;
         if (req.headers['accept-encoding'] && req.headers['accept-encoding']) {
@@ -299,12 +310,12 @@ export class Server {
                 deflate = accept.indexOf('deflate') != -1;
             }
         }
+
         if (deflate) {
-            res.writeHead(200, {
-                'Content-Encoding': 'deflate'
-            });
+            res.setHeader('Content-Encoding', 'deflate');
         }
-        res.json(this.api.getCurrentStatus(!!deflate));
+        let text = this.api.getCurrentStatus(!!deflate);
+        res.end(text);
     }
 
     onLiveStatus(req: Request, res: Response) {

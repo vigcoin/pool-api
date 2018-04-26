@@ -1,6 +1,7 @@
 {
     "coin": "vigcoin",
     "symbol": "VIG",
+    "port": 8119,
     "coinUnits": 100000000,
     "coinDifficultyTarget": 120,
 
@@ -106,7 +107,7 @@
         "port": 8119,
         "blocks": 30,
         "payments": 30,
-        "password": "your_password"
+        "password": "1234"
     },
 
     "daemon": {

@@ -6,82 +6,101 @@ import { Charts } from "@vigcoin/pool-charts";
 import { Logger } from "@vigcoin/logger";
 import { PoolRequest } from "@vigcoin/pool-request";
 
+const request = require('supertest');
+
 const app: Application = express();
+const app1: Application = express();
 const port = parseInt((Math.random() * 10000).toFixed(0)) + 1024;
 
 const config = require('./config.json');
-
-const pr = new PoolRequest(
-  {},
-  {},
-  {
-    host: 'localhost',
-    port,
-  }
-);
-
-const pr1 = new PoolRequest(
-  {},
-  {},
-  {
-    host: 'localhost',
-    port: port + 1,
-  }
-);
-const logger = new Logger({});
 const redis = new RedisClient({});
-const api = new API(config, logger, pr);
-const charts = new Charts(
-  {
-    pool: {
-      hashrate: {
-        enabled: true,
-        updateInterval: 0.1,
-        stepInterval: 1800,
-        maximumPeriod: 86400,
-      },
-      workers: {
-        enabled: true,
-        updateInterval: 0.1,
-        stepInterval: 1800,
-        maximumPeriod: 86400,
-      },
-      difficulty: {
-        enabled: true,
-        updateInterval: 0.1,
-        stepInterval: 10800,
-        maximumPeriod: 604800,
-      },
-      price: {
-        enabled: true,
-        updateInterval: 0.1,
-        stepInterval: 10800,
-        maximumPeriod: 604800,
-      },
-      profit: {
-        enabled: true,
-        updateInterval: 0.1,
-        stepInterval: 10800,
-        maximumPeriod: 604800,
-      },
-    },
+const server = new Server(app, config, redis, {}, '1.0');
+let http: any;
 
-    user: {
-      hashrate: {
-        enabled: true,
-        updateInterval: 0.1,
-        setInterval: 0,
-        maximumPeriod: 0,
-      },
-    },
-  },
-  pr,
-  logger
-);
-
-test('Should greet with message', () => {
-  const server = new Server(app, config, redis);
+test('Should create server', () => {
   expect(server).toBeTruthy();
+});
+
+test('Should start', async () => {
+  http = await server.start()
+  expect(http).toBeTruthy();
+});
+
+test('Should app get stats', () => {
+  return request(app)
+    .get('/stats').expect(200);
+});
+
+test('Should app get live stats', (done) => {
+  let api = server.getApi();
+  request(app)
+    .get('/live_stats').then((res) => {
+      expect(res.statusCode).toBe(200);
+      done();
+    });
+  setTimeout(() => {
+    api.sendConnections();
+  }, 100);
+});
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/stats_address')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/get_payments')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/get_blocks')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/admin_stats')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/admin_monitoring')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/admin_log')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/admin_users')
+//     .expect(200)
+//     .end(done);
+// });
+
+// test('Should app get stats', (done) => {
+//   request(app)
+//     .get('/miners_hashrate')
+//     .expect(200)
+//     .end(done);
+// });
+
+test('Should quit server', () => {
+  http.close();
 });
 
 test('Should close all', () => {
