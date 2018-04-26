@@ -5,6 +5,8 @@ import { RedisClient } from "redis";
 import { Charts } from "@vigcoin/pool-charts";
 import { Logger } from "@vigcoin/logger";
 import { PoolRequest } from "@vigcoin/pool-request";
+import * as fs from "fs";
+import * as path from "path";
 
 const request = require('supertest');
 
@@ -75,19 +77,29 @@ test('Should get admin status failed', () => {
 });
 
 test('Should get admin status ok', () => {
-    return request(app).get('/admin_stats').query({ password: 1234}).expect(200);
+    return request(app).get('/admin_stats').query({ password: 1234 }).expect(200);
 });
 
 test('Should get admin monitoring', () => {
-    return request(app).get('/admin_monitoring').query({ password: 1234}).expect(200);
+    return request(app).get('/admin_monitoring').query({ password: 1234 }).expect(200);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/admin_monitoring')
-//     .expect(200)
-//     .end(done);
-// });
+
+test('Should get admin log  none exist', () => {
+    return request(app).get('/admin_log').query({ password: 1234, file: 'aaa.txt' }).expect(403);
+});
+
+test('Should get admin log', (done) => {
+    let file = fs.createWriteStream(path.resolve(__dirname, '../logs/bbb.log'));
+    file.write("hello");
+    file.end(() => {
+        request(app).get('/admin_log').query({ password: 1234, file: 'bbb.log' }).expect(200).then(() => {
+            done();
+        })
+    });
+    file.close();
+
+});
 
 // test('Should app get stats', (done) => {
 //   request(app)
@@ -111,6 +123,7 @@ test('Should get admin monitoring', () => {
 // });
 
 test('Should quit server', () => {
+    fs.unlinkSync(path.resolve(__dirname, '../logs/bbb.log'));
     http.close();
 });
 
