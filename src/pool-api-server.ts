@@ -170,9 +170,7 @@ export class Server {
         }
         const stats: any = {};
         results.forEach((e: any, i: number) => {
-            if (e) {
-                stats[modules[i]] = e;
-            }
+            stats[modules[i]] = e;
         });
         res.json({
             monitoring: stats,
@@ -272,7 +270,7 @@ export class Server {
             );
             res.json(json);
         } catch (e) {
-            console.log(e);
+            console.error(e);
             res.json({
                 error: 'query failed'
             });
@@ -299,13 +297,10 @@ export class Server {
 
     onStatus(req: Request, res: Response) {
         let deflate = false;
-        if (req.headers['accept-encoding'] && req.headers['accept-encoding']) {
-            const accept = req.headers['accept-encoding'];
-            if (accept) {
-                deflate = accept.indexOf('deflate') != -1;
-            }
+        const accept = req.headers['accept-encoding'];
+        if (accept) {
+            deflate = accept.indexOf('deflate') != -1;
         }
-
         if (deflate) {
             res.setHeader('Content-Encoding', 'deflate');
         }
