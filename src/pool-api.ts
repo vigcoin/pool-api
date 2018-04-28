@@ -1,23 +1,23 @@
-import { Router, Request, Response } from "express";
-import { v1 as uuid } from "uuid";
-import { promisify } from "util";
-import { RedisClient } from "redis";
-import * as _ from "lodash";
-import { Logger } from "@vigcoin/logger";
-import { PoolRequest } from "@vigcoin/pool-request";
-import { Charts } from "@vigcoin/pool-charts";
-import * as zlib from "zlib";
+import { Router, Request, Response } from 'express';
+import { v1 as uuid } from 'uuid';
+import { promisify } from 'util';
+import { RedisClient } from 'redis';
+import * as _ from 'lodash';
+import { Logger } from '@vigcoin/logger';
+import { PoolRequest } from '@vigcoin/pool-request';
+import { Charts } from '@vigcoin/pool-charts';
+import * as zlib from 'zlib';
 
 export class API {
-  private timer: NodeJS.Timer;
+  private timer!: any;
   private intervals: any = {};
   private logger: Logger;
   private req: PoolRequest | any;
   private config: any;
-  private coin: string;
+  private coin!: string;
   private redisCommands = {};
-  private currentStats = "";
-  private currentStatsCompressed = "";
+  private currentStats = '';
+  private currentStatsCompressed = '';
 
   private minerStats: any = {};
   private minersHashrate: any = {};
@@ -48,7 +48,7 @@ export class API {
       ['zcard', coin + ':blocks:matured'],
       ['zrevrange', coin + ':payments:all', 0, payments - 1, 'WITHSCORES'],
       ['zcard', coin + ':payments:all'],
-      ['keys', coin + ':payments:*']
+      ['keys', coin + ':payments:*'],
     ];
   }
 
@@ -56,7 +56,12 @@ export class API {
     for (const module of Object.keys(this.config.monitoring)) {
       let settings = _.get(this.config, 'monitoring.' + module);
       if (settings.checkInterval) {
-        await this.startRpcMonitoring(redis, module, settings.rpcMethod, settings.checkInterval);
+        await this.startRpcMonitoring(
+          redis,
+          module,
+          settings.rpcMethod,
+          settings.checkInterval
+        );
       }
     }
   }
@@ -74,7 +79,12 @@ export class API {
     }
   }
 
-  async startRpcMonitoring(redis: RedisClient, module: string, method: string, interval: number) {
+  async startRpcMonitoring(
+    redis: RedisClient,
+    module: string,
+    method: string,
+    interval: number
+  ) {
     this.stopInterval(module);
     this.intervals[module] = setInterval(async () => {
       const json = await this.req[module]('/', method, {});
@@ -82,7 +92,7 @@ export class API {
       const stat: any = {
         lastCheck: Date.now() / 1000,
         lastStatus: 'ok',
-        lastResponse: JSON.stringify(json)
+        lastResponse: JSON.stringify(json),
       };
       const key = [this.coin, 'status', module].join(':');
       const hset = promisify(redis.hset).bind(redis);
@@ -93,7 +103,6 @@ export class API {
   }
 
   async processRedis(redis: any, redisCommands: any[]) {
-
     let data: any = [];
 
     for (let i = 0; i < redisCommands.length; i++) {
@@ -103,7 +112,7 @@ export class API {
       const res = await cmd.apply(redis, item.splice(1));
       data.push(res);
     }
-    return data
+    return data;
   }
 
   async getPool(redis: RedisClient) {
@@ -111,7 +120,7 @@ export class API {
     let blocks = _.get(this.config, 'api.blocks');
     let hashrateWindow = _.get(this.config, 'api.hashrateWindow');
     let payments = _.get(this.config, 'api.payments');
-    const windowTime = (((Date.now() / 1000) - hashrateWindow) | 0).toString();
+    const windowTime = ((Date.now() / 1000 - hashrateWindow) | 0).toString();
     let coin = this.coin;
     let redisCommands = [
       ['zremrangebyscore', coin + ':hashrate', '-inf', '(' + windowTime],
@@ -124,20 +133,20 @@ export class API {
       ['zcard', coin + ':blocks:matured'],
       ['zrevrange', coin + ':payments:all', 0, payments - 1, 'WITHSCORES'],
       ['zcard', coin + ':payments:all'],
-      ['keys', coin + ':payments:*']
+      ['keys', coin + ':payments:*'],
     ];
     const replies: any = await this.processRedis(redis, redisCommands);
     console.log(replies);
     let redisFinished = Date.now();
-    const dateNowSeconds = Date.now() / 1000 | 0;
+    const dateNowSeconds = (Date.now() / 1000) | 0;
 
     const data: any = {
       stats: replies[2],
       blocks: replies[3].concat(replies[4]),
-      totalBlocks: parseInt(replies[7]) + (replies[3].length / 2),
+      totalBlocks: parseInt(replies[7]) + replies[3].length / 2,
       payments: replies[8],
       totalPayments: parseInt(replies[9]),
-      totalMinersPaid: replies[10].length - 1
+      totalMinersPaid: replies[10].length - 1,
     };
 
     const hashrates = replies[1];
@@ -147,7 +156,8 @@ export class API {
 
     for (let i = 0; i < hashrates.length; i++) {
       const hashParts = hashrates[i].split(':');
-      this.minersHashrate[hashParts[1]] = (this.minersHashrate[hashParts[1]] || 0) + parseInt(hashParts[0]);
+      this.minersHashrate[hashParts[1]] =
+        (this.minersHashrate[hashParts[1]] || 0) + parseInt(hashParts[0]);
     }
 
     let totalShares = 0;
@@ -155,8 +165,12 @@ export class API {
     for (const miner in this.minersHashrate) {
       const shares = this.minersHashrate[miner];
       totalShares += shares;
-      this.minersHashrate[miner] = Math.round(shares / config.api.hashrateWindow);
-      this.minerStats[miner] = this.getReadableHashRateString(this.minersHashrate[miner]);
+      this.minersHashrate[miner] = Math.round(
+        shares / config.api.hashrateWindow
+      );
+      this.minerStats[miner] = this.getReadableHashRateString(
+        this.minersHashrate[miner]
+      );
     }
 
     data.miners = Object.keys(this.minerStats).length;
@@ -170,7 +184,11 @@ export class API {
         data.roundHashes += parseInt(replies[5][miner]);
         console.log(config.poolServer);
         if (config.poolServer.slushMining.enabled) {
-          data.roundHashes /= Math.pow(Math.E, ((data.lastBlockFound - dateNowSeconds) / config.poolServer.slushMining.weight)); //TODO: Abstract: If something different than lastBlockfound is used for scoreTime, this needs change. 
+          data.roundHashes /= Math.pow(
+            Math.E,
+            (data.lastBlockFound - dateNowSeconds) /
+              config.poolServer.slushMining.weight
+          ); //TODO: Abstract: If something different than lastBlockfound is used for scoreTime, this needs change.
         }
       }
     }
@@ -185,23 +203,34 @@ export class API {
     try {
       let data = await this.req.daemon('', 'getlastblockheader', {});
       let blockHeader = data.block_header;
-      return _.pick(data, ['difficulty', 'height', 'timestamp', 'reward', 'hash'])
+      return _.pick(data, [
+        'difficulty',
+        'height',
+        'timestamp',
+        'reward',
+        'hash',
+      ]);
     } catch (e) {
       this.logger.append('error', 'api', 'Error getting daemon data ' + e, []);
       return null;
     }
   }
 
-  async collectStatus(charts: Charts, redis: RedisClient, donations: any, version: string) {
+  async collectStatus(
+    charts: Charts,
+    redis: RedisClient,
+    donations: any,
+    version: string
+  ) {
     let startTime = Date.now();
     let config = this.config;
-    console.log("inside 1");
+    console.log('inside 1');
     let pool = await this.getPool(redis);
     let redisFinished = Date.now();
-    console.log("inside 11");
+    console.log('inside 11');
 
     let network = await this.getNetwork(redis);
-    console.log("inside 12");
+    console.log('inside 12');
 
     let daemonFinished = Date.now();
     let modConfig = {
@@ -219,25 +248,33 @@ export class API {
       denominationUnit: config.payments.denomination,
       blockTime: config.coinDifficultyTarget,
       slushMiningEnabled: config.poolServer.slushMining.enabled,
-      weight: config.poolServer.slushMining.weight
+      weight: config.poolServer.slushMining.weight,
     };
     let result = {
       pool: pool,
       network: network,
       config: modConfig,
-      charts: await charts.getPoolChartsData(redis, config.coin)
+      charts: await charts.getPoolChartsData(redis, config.coin),
     };
-    console.log("inside 13");
+    console.log('inside 13');
 
-
-    this.logger.append('info', 'api', 'Stat collection finished: ' + (redisFinished - startTime) + 'ms redis, ' + (daemonFinished - startTime) + ' ms daemon', []);
+    this.logger.append(
+      'info',
+      'api',
+      'Stat collection finished: ' +
+        (redisFinished - startTime) +
+        'ms redis, ' +
+        (daemonFinished - startTime) +
+        ' ms daemon',
+      []
+    );
     this.currentStats = JSON.stringify(result);
     let deflateRaw = promisify(zlib.deflateRaw).bind(zlib);
     this.currentStatsCompressed = await deflateRaw(this.currentStats);
-    console.log("inside 14");
+    console.log('inside 14');
 
     await this.broadcastLiveStats(redis, this.config);
-    console.log("inside 15");
+    console.log('inside 15');
 
     this.clearTimer();
     this.timer = setTimeout(async () => {
@@ -262,9 +299,15 @@ export class API {
 
     let replies: any = [];
     for (let address in this.addressConnections) {
-
       replies.push(await hgetall(config.coin + ':workers:' + address));
-      replies.push(await zrevrange(config.coin + ':payments:' + address, 0, config.api.payments - 1, 'WITHSCORES'));
+      replies.push(
+        await zrevrange(
+          config.coin + ':payments:' + address,
+          0,
+          config.api.payments - 1,
+          'WITHSCORES'
+        )
+      );
     }
 
     let addresses = Object.keys(this.addressConnections);
@@ -278,7 +321,7 @@ export class API {
         return;
       }
       if (!stats) {
-        res.json({ error: "not found" });
+        res.json({ error: 'not found' });
         return;
       }
       stats.hashrate = this.minerStats[address];
@@ -287,18 +330,24 @@ export class API {
   }
 
   async broadcastLiveStats(redis: RedisClient, config: any) {
-    this.logger.append('info', 'api', 'Broadcasting to ' + Object.keys(this.liveConnections).length + ' visitors and '
-      + Object.keys(this.addressConnections).length +
-      ' address lookups', []);
+    this.logger.append(
+      'info',
+      'api',
+      'Broadcasting to ' +
+        Object.keys(this.liveConnections).length +
+        ' visitors and ' +
+        Object.keys(this.addressConnections).length +
+        ' address lookups',
+      []
+    );
 
     this.sendConnections();
-    console.log("inside send connections");
+    console.log('inside send connections');
     await this.sendAddresses(redis, config);
-    console.log("inside send addresses");
-
+    console.log('inside send addresses');
   }
   getPublicPorts(ports: any) {
-    return ports.filter(function (port: any) {
+    return ports.filter(function(port: any) {
       return !port.hidden;
     });
   }
@@ -320,7 +369,7 @@ export class API {
   addConnection(res: Response) {
     const id = uuid();
     this.liveConnections[id] = res;
-    res.on("finish", () => {
+    res.on('finish', () => {
       delete this.liveConnections[id];
     });
   }
@@ -328,14 +377,13 @@ export class API {
   async getAddressExistence(redis: RedisClient, coin: string, address: string) {
     const exists = promisify(redis.exists).bind(redis);
     return exists([coin, 'workers', address].join(':'));
-
   }
 
   addAddressesConnection(address: string, res: Response) {
     this.addressConnections[address] = res;
     res.on('finish', () => {
       delete this.addressConnections[address];
-    })
+    });
   }
 
   async getAddressStatus(redis: RedisClient, coin: string, address: string) {
@@ -351,7 +399,12 @@ export class API {
   async getAddressPayments(redis: RedisClient, coin: string, address: string) {
     let payments = _.get(this.config, 'api.payments');
     const zrevrange = promisify(redis.zrevrange).bind(redis);
-    return zrevrange([coin, 'payments', address].join(':'), 0, payments - 1, 'WITHSCORES');
+    return zrevrange(
+      [coin, 'payments', address].join(':'),
+      0,
+      payments - 1,
+      'WITHSCORES'
+    );
   }
 
   getHashrate(address: string) {
@@ -359,11 +412,10 @@ export class API {
   }
 
   setHashrate(address: string, value: number) {
-    return this.minersHashrate[address] = value;
+    return (this.minersHashrate[address] = value);
   }
 
   getHashrates() {
     return this.minersHashrate;
   }
-
 }
