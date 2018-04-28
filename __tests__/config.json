@@ -103,7 +103,7 @@
     "api": {
         "enabled": true,
         "hashrateWindow": 600,
-        "updateInterval": 5,
+        "updateInterval": 0.1,
         "port": 8119,
         "blocks": 30,
         "payments": 30,
@@ -127,11 +127,11 @@
 
     "monitoring": {
         "daemon": {
-            "checkInterval": 60,
+            "checkInterval": 0.1,
             "rpcMethod": "getblockcount"
         },
         "wallet": {
-            "checkInterval": 60,
+            "checkInterval": 0.2,
             "rpcMethod": "getbalance"
         }
     },

@@ -10,6 +10,7 @@ import * as zlib from "zlib";
 
 export class API {
   private timer: NodeJS.Timer;
+  private intervals: any = {};
   private logger: Logger;
   private req: PoolRequest | any;
   private config: any;
@@ -60,9 +61,23 @@ export class API {
     }
   }
 
+  clearIntervals() {
+    for (const module of Object.keys(this.intervals)) {
+      this.stopInterval(module);
+    }
+  }
+
+  stopInterval(module: string) {
+    if (this.intervals[module]) {
+      clearInterval(this.intervals[module]);
+      this.intervals[module] = null;
+    }
+  }
+
   async startRpcMonitoring(redis: RedisClient, module: string, method: string, interval: number) {
-    setInterval(async () => {
-      const json = await this.req[module](method, {});
+    this.stopInterval(module);
+    this.intervals[module] = setInterval(async () => {
+      const json = await this.req[module]('/', method, {});
 
       const stat: any = {
         lastCheck: Date.now() / 1000,
@@ -70,13 +85,25 @@ export class API {
         lastResponse: JSON.stringify(json)
       };
       const key = [this.coin, 'status', module].join(':');
-      const redisCommands = [];
+      const hset = promisify(redis.hset).bind(redis);
       for (const property of Object.keys(stat)) {
-        redisCommands.push(['hset', key, property, stat[property]]);
+        await hset(key, property, stat[property]);
       }
-      const multi = promisify(redis.multi).bind(redis);
-      await multi(redisCommands);
     }, interval * 1000);
+  }
+
+  async processRedis(redis: any, redisCommands: any[]) {
+
+    let data: any = [];
+
+    for (let i = 0; i < redisCommands.length; i++) {
+      let item = redisCommands[i];
+      const func = redis[item[0]];
+      const cmd = promisify(func).bind(redis);
+      const res = await cmd.apply(redis, item.splice(1));
+      data.push(res);
+    }
+    return data
   }
 
   async getPool(redis: RedisClient) {
@@ -99,9 +126,8 @@ export class API {
       ['zcard', coin + ':payments:all'],
       ['keys', coin + ':payments:*']
     ];
-
-    const multi = promisify(redis.multi).bind(redis);
-    const replies = await multi(redisCommands);
+    const replies: any = await this.processRedis(redis, redisCommands);
+    console.log(replies);
     let redisFinished = Date.now();
     const dateNowSeconds = Date.now() / 1000 | 0;
 
@@ -141,11 +167,10 @@ export class API {
 
     if (replies[5]) {
       for (const miner in replies[5]) {
+        data.roundHashes += parseInt(replies[5][miner]);
+        console.log(config.poolServer);
         if (config.poolServer.slushMining.enabled) {
-          data.roundHashes += parseInt(replies[5][miner]) / Math.pow(Math.E, ((data.lastBlockFound - dateNowSeconds) / config.poolServer.slushMining.weight)); //TODO: Abstract: If something different than lastBlockfound is used for scoreTime, this needs change. 
-        }
-        else {
-          data.roundHashes += parseInt(replies[5][miner]);
+          data.roundHashes /= Math.pow(Math.E, ((data.lastBlockFound - dateNowSeconds) / config.poolServer.slushMining.weight)); //TODO: Abstract: If something different than lastBlockfound is used for scoreTime, this needs change. 
         }
       }
     }
@@ -170,9 +195,14 @@ export class API {
   async collectStatus(charts: Charts, redis: RedisClient, donations: any, version: string) {
     let startTime = Date.now();
     let config = this.config;
+    console.log("inside 1");
     let pool = await this.getPool(redis);
     let redisFinished = Date.now();
+    console.log("inside 11");
+
     let network = await this.getNetwork(redis);
+    console.log("inside 12");
+
     let daemonFinished = Date.now();
     let modConfig = {
       ports: this.getPublicPorts(config.poolServer.ports),
@@ -197,12 +227,18 @@ export class API {
       config: modConfig,
       charts: await charts.getPoolChartsData(redis, config.coin)
     };
+    console.log("inside 13");
+
 
     this.logger.append('info', 'api', 'Stat collection finished: ' + (redisFinished - startTime) + 'ms redis, ' + (daemonFinished - startTime) + ' ms daemon', []);
     this.currentStats = JSON.stringify(result);
     let deflateRaw = promisify(zlib.deflateRaw).bind(zlib);
     this.currentStatsCompressed = await deflateRaw(this.currentStats);
+    console.log("inside 14");
+
     await this.broadcastLiveStats(redis, this.config);
+    console.log("inside 15");
+
     this.clearTimer();
     this.timer = setTimeout(async () => {
       await this.collectStatus(charts, redis, donations, version);
@@ -221,28 +257,32 @@ export class API {
   }
 
   async sendAddresses(redis: RedisClient, config: any) {
-    var redisCommands = [];
+    let hgetall = promisify(redis.hgetall).bind(redis);
+    let zrevrange = promisify(redis.zrevrange).bind(redis);
+
+    let replies: any = [];
     for (let address in this.addressConnections) {
-      redisCommands.push(['hgetall', config.coin + ':workers:' + address]);
-      redisCommands.push(['zrevrange', config.coin + ':payments:' + address, 0, config.api.payments - 1, 'WITHSCORES']);
+
+      replies.push(await hgetall(config.coin + ':workers:' + address));
+      replies.push(await zrevrange(config.coin + ':payments:' + address, 0, config.api.payments - 1, 'WITHSCORES'));
     }
 
-    let multi = promisify(redis.multi).bind(redis);
-    console.log("before multi");
-    let replies = await multi(redisCommands);
-    console.log("after multi");
-
     let addresses = Object.keys(this.addressConnections);
+    console.log(addresses);
     addresses.forEach((address, i) => {
       var offset = i * 2;
       var stats = replies[offset];
+      console.log(replies, offset, stats);
       var res = this.addressConnections[address];
+      if (!res) {
+        return;
+      }
       if (!stats) {
-        res.end(JSON.stringify({ error: "not found" }));
+        res.json({ error: "not found" });
         return;
       }
       stats.hashrate = this.minerStats[address];
-      res.end(JSON.stringify({ stats: stats, payments: replies[offset + 1] }));
+      res.json({ stats: stats, payments: replies[offset + 1] });
     });
   }
 
@@ -252,7 +292,9 @@ export class API {
       ' address lookups', []);
 
     this.sendConnections();
+    console.log("inside send connections");
     await this.sendAddresses(redis, config);
+    console.log("inside send addresses");
 
   }
   getPublicPorts(ports: any) {
@@ -264,7 +306,7 @@ export class API {
   getReadableHashRateString(hashrate: number) {
     let i = 0;
     const byteUnits = [' H', ' KH', ' MH', ' GH', ' TH', ' PH'];
-    while (hashrate > 1000) {
+    while (hashrate >= 1000) {
       hashrate = hashrate / 1000;
       i++;
     }
@@ -281,6 +323,19 @@ export class API {
     res.on("finish", () => {
       delete this.liveConnections[id];
     });
+  }
+
+  async getAddressExistence(redis: RedisClient, coin: string, address: string) {
+    const exists = promisify(redis.exists).bind(redis);
+    return exists([coin, 'workers', address].join(':'));
+
+  }
+
+  addAddressesConnection(address: string, res: Response) {
+    this.addressConnections[address] = res;
+    res.on('finish', () => {
+      delete this.addressConnections[address];
+    })
   }
 
   async getAddressStatus(redis: RedisClient, coin: string, address: string) {
@@ -301,6 +356,10 @@ export class API {
 
   getHashrate(address: string) {
     return this.minersHashrate[address] ? this.minersHashrate[address] : 0;
+  }
+
+  setHashrate(address: string, value: number) {
+    return this.minersHashrate[address] = value;
   }
 
   getHashrates() {

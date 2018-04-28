@@ -1,192 +1,241 @@
 import { API, Server } from '../src/index';
-import { Router, Request, Response, Application } from "express";
-import * as express from "express";
 import { RedisClient } from "redis";
-import { Charts } from "@vigcoin/pool-charts";
 import { Logger } from "@vigcoin/logger";
 import { PoolRequest } from "@vigcoin/pool-request";
-import * as fs from "fs";
-import * as path from "path";
+import { Charts } from "@vigcoin/pool-charts";
 import { promisify } from "util";
+import { Response } from "express";
+import * as express from "express";
+import * as request from "supertest";
+import * as nock from 'nock';
 
-const request = require('supertest');
 
-const app: Application = express();
-const app1: Application = express();
-const port = parseInt((Math.random() * 10000).toFixed(0)) + 1024;
-
+const app = express();
+const app1 = express();
+const app2 = express();
 const config = require('./config.json');
+
 const redis = new RedisClient({});
-const server = new Server(app, config, redis, {}, '1.0');
-let http: any;
+const logger = new Logger(config.logger);
+const pr = new PoolRequest(config.daemon, config.wallet, config.api);
+const api = new API(config, logger, pr);
 
-test('Should create server', () => {
-    expect(server).toBeTruthy();
+app.get('/test1', function (req, res) {
+  api.addAddressesConnection('aaa', res);
 });
 
-test('Should start', async () => {
-    http = await server.start()
-    expect(http).toBeTruthy();
+app.get('/test2', function (req, res) {
+  api.addAddressesConnection('eee', res);
 });
 
-test('Should app get stats', () => {
-    return request(app)
-        .get('/stats').expect(200);
-});
-
-test('Should app get stats without deflate', () => {
-    return request(app).get('/stats')
-        .set({ 'accept-encoding': '*' })
-        .expect(200);
-});
-
-test('Should app get stats without Accept-Encoding', () => {
-    return request(app).get('/stats')
-        .set('accept-encoding', '')
-        .expect(200);
-});
-
-test('Should app get live stats', (done) => {
-    let api = server.getApi();
-    request(app)
-        .get('/live_stats').then((res) => {
-            expect(res.statusCode).toBe(200);
-            done();
-        });
-    setTimeout(() => {
-        api.sendConnections();
-    }, 100);
-});
-
-test('Should app address stats', () => {
-    return request(app)
-        .get('/stats_address').expect(403);
-});
-
-test('Should app address stats 2', () => {
-    return request(app)
-        .get('/stats_address').query({ address: 'aaa', longpoll: false }).expect(200);
-});
-
-test('Should get payments all', () => {
-    return request(app)
-        .get('/get_payments').query({ time: Date.now() }).expect(200);
-});
-
-test('Should get payments address', () => {
-    return request(app)
-        .get('/get_payments').query({ address: 'aaa', time: Date.now() }).expect(200);
-});
-
-test('Should get payments address', () => {
-    return request(app)
-        .get('/get_payments').query({ address: 'aaa', time: 'aaabbb' }).expect(200);
+app.get('/test3', function (req, res) {
+  api.addAddressesConnection('uuu', null);
 });
 
 
-test('Should get blocks', () => {
-    return request(app)
-        .get('/get_blocks').query({ time: Date.now() }).expect(200);
+test('Should have api', () => {
+  expect(api).toBeTruthy();
 });
 
-test('Should get blocks', () => {
-    return request(app)
-        .get('/get_blocks').query({ height: 121 }).expect(200);
+test('Should flush all', (done) => {
+  redis.flushall((err, succeeded) => {
+    expect(!err).toBeTruthy();
+    expect(succeeded).toBeTruthy();
+    done();
+  });
 });
 
-test('Should get admin status failed', () => {
-    return request(app)
-        .get('/admin_stats').query({ time: Date.now() }).expect(401);
-});
-
-test('Should get admin status ok', () => {
-    return request(app).get('/admin_stats').query({ password: 1234 }).expect(200);
+test('Should get address status', async () => {
+  let res = await api.getAddressStatus(redis, config.coin, 'bbb');
+  expect(Object.keys(res).length === 0).toBeTruthy();
 });
 
 test('set blocks data', async () => {
-
-    const zadd = promisify(redis.zadd).bind(redis);
-    const hset = promisify(redis.hset).bind(redis);
-    await zadd(config.coin + ':blocks:matured', 1, [
-        1,
-        2,
-        3,
-        4,
-        1
-    ].join(':'));
-
-    await zadd(config.coin + ':blocks:matured', 1, [
-        1,
-        2,
-        3,
-        4,
-        1,
-        3
-    ].join(':'));
-
-    await hset(config.coin + ':workers:aaa', 'user', 100);
-    await hset(config.coin + ':workers:bbb', 'user', 100);
-    await hset(config.coin + ':workers:bbb', 'user', 0);
-    await hset(config.coin + ':status:daemon', 'user', 1);
-    await hset(config.coin + ':status:daemon', 'user', 2);
-    await hset(config.coin + ':status:daemon', 'user', 0);
-    await hset(config.coin + ':status:daemon', '', 0);
+  const hset = promisify(redis.hset).bind(redis);
+  await hset(config.coin + ':workers:aaa', 'user', 100);
+  await hset(config.coin + ':workers:aaa', 'user', 100);
+  await hset(config.coin + ':workers:aaa', 'user', 0);
+  await hset(config.coin + ':workers:ccc', 'bbb', 0);
+  await hset(config.coin + ':workers:ccc', 'bbb', 0);
+  await hset(config.coin + ':workers:ccc', 'bbb', 0);
 });
 
-test('Should get admin status ok and get blocks', () => {
-    return request(app).get('/admin_stats').query({ password: 1234 }).expect(200);
+test('Should get address status', async () => {
+  let res = await api.getAddressStatus(redis, config.coin, 'aaa');
+  expect(Object.keys(res).length > 0).toBeTruthy();
 });
 
-
-test('Should get admin monitoring', () => {
-    return request(app).get('/admin_monitoring').query({ password: 1234 }).expect(200);
+test('Should get hashrate', async () => {
+  let hr = await api.getReadableHashRateString(1);
+  let hr1 = await api.getReadableHashRateString(1000);
+  let hr11 = await api.getReadableHashRateString(1100);
+  let hr2 = await api.getReadableHashRateString(1000 * 1000);
+  let hr3 = await api.getReadableHashRateString(1000 * 1000 * 1000);
+  let hr4 = await api.getReadableHashRateString(1000 * 1000 * 1000 * 1000);
+  let hr5 = await api.getReadableHashRateString(1000 * 1000 * 1000 * 1000 * 1000);
+  expect(hr === '1.00 H').toBeTruthy();
+  expect(hr1 === '1.00 KH').toBeTruthy();
+  expect(hr11 === '1.10 KH').toBeTruthy();
+  expect(hr2 === '1.00 MH').toBeTruthy();
+  expect(hr3 === '1.00 GH').toBeTruthy();
+  expect(hr4 === '1.00 TH').toBeTruthy();
+  expect(hr5 === '1.00 PH').toBeTruthy();
 });
 
-
-test('Should get admin log  none exist', () => {
-    return request(app).get('/admin_log').query({ password: 1234, file: 'aaa.txt' }).expect(403);
-});
-
-test('Should get admin log', (done) => {
-    let file = fs.createWriteStream(path.resolve(__dirname, '../logs/bbb.log'));
-    file.write("hello");
-    file.end(() => {
-        request(app).get('/admin_log').query({ password: 1234, file: 'bbb.log' }).expect(200).then(() => {
-            done();
-        })
-    });
-    file.close();
-
-});
-
-test('Should get admin users', () => {
-    return request(app).get('/admin_users').query({ password: 1234 }).expect(200);
+test('Should get port', async () => {
+  let res = await api.getPublicPorts([{ hidden: true }, { hidden: false }]);
+  expect(Object.keys(res).length === 1).toBeTruthy();
 });
 
 
-test('Should get admin get miners hashrates', () => {
-    return request(app).get('/miners_hashrate').query({ password: 1234 }).expect(200);
+test('Should broadcastLiveStats ', async () => {
+  let res = await api.broadcastLiveStats(redis, config);
+  console.log(res);
 });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/admin_users')
-//     .expect(200)
-//     .end(done);
-// });
 
-// test('Should app get stats', (done) => {
-//   request(app)
-//     .get('/miners_hashrate')
-//     .expect(200)
-//     .end(done);
-// });
+test('Should broadcastLiveStats ', (done) => {
+  let a = false, b = false;
 
-test('Should quit server', () => {
-    fs.unlinkSync(path.resolve(__dirname, '../logs/bbb.log'));
-    http.close();
+  let interval = setInterval(async () => {
+    if (a && b) {
+      clearInterval(interval);
+      done();
+    }
+    await api.broadcastLiveStats(redis, config);
+  }, 100);
+  request(app).get('/test1').then((res) => {
+    console.log("responsed");
+    console.log("a");
+    a = true;
+  });
+
+  request(app).get('/test2').then((res) => {
+    console.log("responsed");
+    console.log("b");
+    b = true;
+  });
+
+  request(app).get('/test3').then((res) => {
+  });
+});
+
+
+test('Should collectStatus ', (done) => {
+  console.log("inside collect 1");
+  const charts = new Charts(config, pr, logger);
+  api.collectStatus(charts, redis, {}, '1.0').then(() => {
+    setTimeout(() => {
+      done();
+    }, 500);
+  });
+});
+
+
+test('should adjust data', async () => {
+  var dateNow = Date.now();
+  var dateNowSeconds = dateNow / 1000 | 0;
+
+  const hset = promisify(redis.hset).bind(redis);
+  const zadd = promisify(redis.zadd).bind(redis);
+  await hset(config.coin + ':stats', 'lastBlockFound', 1001);
+  await hset(config.coin + ':shares:roundCurrent', '', 1001);
+  await hset(config.coin + ':shares:roundCurrent', '', 1002);
+  await zadd(config.coin + ':hashrate', dateNowSeconds, [1000, 'aa', dateNow].join(':'));
+  await zadd(config.coin + ':hashrate', dateNowSeconds + 1, [1000, 'aa', dateNow].join(':'));
+  await zadd(config.coin + ':hashrate', dateNowSeconds + 2, [1000, 'aa', dateNow].join(':'));
+});
+
+test('Should collectStatus ', (done) => {
+  console.log("inside collect 1");
+  const charts = new Charts(config, pr, logger);
+  api.collectStatus(charts, redis, {}, '1.0').then(() => {
+    setTimeout(() => {
+      done();
+    }, 500);
+  });
+});
+
+test('should adjust data', async () => {
+  config.poolServer.slushMining.enabled = true;
+});
+
+test('Should collectStatus ', (done) => {
+  console.log("inside collect 1");
+  const charts = new Charts(config, pr, logger);
+  api.collectStatus(charts, redis, {}, '1.0').then(() => {
+    setTimeout(() => {
+      done();
+    }, 500);
+  });
+});
+
+test('should ini daemon network server', (done) => {
+  app1.all('*', (req, res) => {
+    console.log('inside resource ');
+    res.json({ error: 'ok', difficulty: 1, height: 2, timestamp: 3, reward: 4, hash: 5 });
+  });
+  const config = require('./config.json');
+  app1.listen(config.daemon.port, () => {
+    done()
+  });
+});
+
+test('should ini wallet network server', (done) => {
+  app2.all('*', (req, res) => {
+    console.log('inside resource ');
+    res.json({ error: 'ok', difficulty: 1, height: 2, timestamp: 3, reward: 4, hash: 5 });
+  });
+  const config = require('./config.json');
+  app2.listen(config.wallet.port, () => {
+    done()
+  });
+});
+
+test('should init rpc monitoring', (done) => {
+  api.initMonitoring(redis).then(() => {
+    setTimeout(() => {
+      api.clearIntervals();
+      done();
+    }, 1000);
+  })
+});
+
+
+test('should init rpc monitoring', (done) => {
+  config.monitoring.daemon.checkInterval = 0;
+  config.monitoring.wallet.checkInterval = 0;
+  api.initMonitoring(redis).then(() => {
+    setTimeout(() => {
+      api.clearIntervals();
+      done();
+    }, 1000);
+  })
+});
+
+test('should init rpc monitoring', () => {
+  api.setHashrate('aaa', 0);
+  const hr = api.getHashrate('aaa');
+  expect(hr).toBe(0);
+  api.setHashrate('aaa', 1);
+  const hr1 = api.getHashrate('aaa');
+  expect(hr1).toBe(1);
+
+});
+
+test('should ini daemon network', async () => {
+  console.log('app started!');
+  const data = await api.getNetwork(redis);
+  expect(data.error).toBeFalsy();
+  expect(data.difficulty).toBe(1);
+  expect(data.height).toBe(2);
+  expect(data.timestamp).toBe(3);
+  expect(data.reward).toBe(4);
+  expect(data.hash).toBe(5);
 });
 
 test('Should close all', () => {
-    redis.quit();
+  api.clearTimer();
+  redis.quit();
 });
+

@@ -284,6 +284,15 @@ export class Server {
             return;
         }
 
+        if (longpoll === 'true') {
+            let exist = await this.api.getAddressExistence(this.redis, this.config.coin, address);
+            if (!exist) {
+                res.json({ error: 'not found' });
+                return;
+            }
+            this.api.addAddressesConnection(address, res);
+        }
+
         res.set('Connection', 'keep-alive');
         let status = await this.api.getAddressStatus(this.redis, this.config.coin, address);
         let payments = await this.api.getAddressPayments(this.redis, this.config.coin, address);
