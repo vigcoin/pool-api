@@ -87,7 +87,7 @@ export class API {
   ) {
     this.stopInterval(module);
     this.intervals[module] = setInterval(async () => {
-      const json = await this.req[module]('/', method, {});
+      const json = await this.req[module]('/json_rpc', method, {});
 
       const stat: any = {
         lastCheck: Date.now() / 1000,
@@ -136,7 +136,6 @@ export class API {
       ['keys', coin + ':payments:*'],
     ];
     const replies: any = await this.processRedis(redis, redisCommands);
-    console.log(replies);
     let redisFinished = Date.now();
     const dateNowSeconds = (Date.now() / 1000) | 0;
 
@@ -182,7 +181,6 @@ export class API {
     if (replies[5]) {
       for (const miner in replies[5]) {
         data.roundHashes += parseInt(replies[5][miner]);
-        console.log(config.poolServer);
         if (config.poolServer.slushMining.enabled) {
           data.roundHashes /= Math.pow(
             Math.E,
@@ -201,7 +199,7 @@ export class API {
 
   async getNetwork(redis: RedisClient) {
     try {
-      let data = await this.req.daemon('', 'getlastblockheader', {});
+      let data = await this.req.daemon('/json_rpc', 'getlastblockheader', {});
       let blockHeader = data.block_header;
       return _.pick(data, [
         'difficulty',
@@ -211,7 +209,7 @@ export class API {
         'hash',
       ]);
     } catch (e) {
-      this.logger.append('error', 'api', 'Error getting daemon data ' + e, []);
+      this.logger.append('error', 'api', 'Error getting daemon data %s ', [e]);
       return null;
     }
   }
@@ -224,13 +222,10 @@ export class API {
   ) {
     let startTime = Date.now();
     let config = this.config;
-    console.log('inside 1');
     let pool = await this.getPool(redis);
     let redisFinished = Date.now();
-    console.log('inside 11');
 
     let network = await this.getNetwork(redis);
-    console.log('inside 12');
 
     let daemonFinished = Date.now();
     let modConfig = {
@@ -256,7 +251,6 @@ export class API {
       config: modConfig,
       charts: await charts.getPoolChartsData(redis, config.coin),
     };
-    console.log('inside 13');
 
     this.logger.append(
       'info',
@@ -271,10 +265,8 @@ export class API {
     this.currentStats = JSON.stringify(result);
     let deflateRaw = promisify(zlib.deflateRaw).bind(zlib);
     this.currentStatsCompressed = await deflateRaw(this.currentStats);
-    console.log('inside 14');
 
     await this.broadcastLiveStats(redis, this.config);
-    console.log('inside 15');
 
     this.clearTimer();
     this.timer = setTimeout(async () => {
@@ -311,11 +303,9 @@ export class API {
     }
 
     let addresses = Object.keys(this.addressConnections);
-    console.log(addresses);
     addresses.forEach((address, i) => {
       var offset = i * 2;
       var stats = replies[offset];
-      console.log(replies, offset, stats);
       var res = this.addressConnections[address];
       if (!res) {
         return;
@@ -342,9 +332,7 @@ export class API {
     );
 
     this.sendConnections();
-    console.log('inside send connections');
     await this.sendAddresses(redis, config);
-    console.log('inside send addresses');
   }
   getPublicPorts(ports: any) {
     return ports.filter(function(port: any) {
