@@ -189,11 +189,15 @@ test('should ini daemon network server', done => {
     console.log('inside resource ');
     res.json({
       error: 'ok',
-      difficulty: 1,
-      height: 2,
-      timestamp: 3,
-      reward: 4,
-      hash: 5,
+      result: {
+        block_header: {
+          difficulty: 1,
+          hash: 5,
+          height: 2,
+          reward: 4,
+          timestamp: 3,
+        }
+      }
     });
   });
   const config = require('./config.json');
@@ -207,11 +211,15 @@ test('should ini wallet network server', done => {
     console.log('inside resource ');
     res.json({
       error: 'ok',
-      difficulty: 1,
-      height: 2,
-      timestamp: 3,
-      reward: 4,
-      hash: 5,
+      result: {
+        block_header: {
+          difficulty: 1,
+          hash: 5,
+          height: 2,
+          reward: 4,
+          timestamp: 3,
+        }
+      }
     });
   });
   const config = require('./config.json');
@@ -252,6 +260,7 @@ test('should init rpc monitoring', () => {
 test('should ini daemon network', async () => {
   console.log('app started!');
   const data = await api.getNetwork(redis);
+  console.log(data);
   expect(data.error).toBeFalsy();
   expect(data.difficulty).toBe(1);
   expect(data.height).toBe(2);

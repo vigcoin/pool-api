@@ -9,12 +9,12 @@ import { Charts } from '@vigcoin/pool-charts';
 import * as zlib from 'zlib';
 
 export class API {
-  private timer!: any;
+  private timer?: any;
   private intervals: any = {};
   private logger: Logger;
   private req: PoolRequest | any;
   private config: any;
-  private coin!: string;
+  private coin?: string;
   private redisCommands = {};
   private currentStats = '';
   private currentStatsCompressed = '';
@@ -200,13 +200,14 @@ export class API {
   async getNetwork(redis: RedisClient) {
     try {
       let data = await this.req.daemon('/json_rpc', 'getlastblockheader', {});
-      let blockHeader = data.block_header;
-      return _.pick(data, [
-        'difficulty',
-        'height',
-        'timestamp',
-        'reward',
-        'hash',
+      console.log(data);
+      let blockHeader = data.result.block_header;
+      return _.pick(blockHeader, [
+          'difficulty',
+          'height',
+          'timestamp',
+          'reward',
+          'hash',
       ]);
     } catch (e) {
       this.logger.append('error', 'api', 'Error getting daemon data %s ', [e]);

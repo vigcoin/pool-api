@@ -1,6 +1,6 @@
 {
   "name": "@vigcoin/pool-api",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "pool-api",
   "license": "MIT",
   "repository": "",
@@ -57,7 +57,7 @@
     "ts-node": "^3.2.0",
     "tslint": "^5.0.0",
     "tslint-config-prettier": "^1.1.0",
-    "typescript": "^2.3.0"
+    "typescript": "^2.9.1"
   },
   "engines": {
     "node": ">=6.0.0"
