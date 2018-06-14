@@ -196,8 +196,8 @@ test('should ini daemon network server', done => {
           height: 2,
           reward: 4,
           timestamp: 3,
-        }
-      }
+        },
+      },
     });
   });
   const config = require('./config.json');
@@ -218,8 +218,8 @@ test('should ini wallet network server', done => {
           height: 2,
           reward: 4,
           timestamp: 3,
-        }
-      }
+        },
+      },
     });
   });
   const config = require('./config.json');

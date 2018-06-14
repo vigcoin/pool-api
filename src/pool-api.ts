@@ -200,14 +200,13 @@ export class API {
   async getNetwork(redis: RedisClient) {
     try {
       let data = await this.req.daemon('/json_rpc', 'getlastblockheader', {});
-      console.log(data);
       let blockHeader = data.result.block_header;
       return _.pick(blockHeader, [
-          'difficulty',
-          'height',
-          'timestamp',
-          'reward',
-          'hash',
+        'difficulty',
+        'height',
+        'timestamp',
+        'reward',
+        'hash',
       ]);
     } catch (e) {
       this.logger.append('error', 'api', 'Error getting daemon data %s ', [e]);

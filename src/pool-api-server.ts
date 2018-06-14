@@ -41,7 +41,7 @@ export class Server {
     );
     this.api = new API(config, this.logger, this.pr);
     this.redis = redis;
-    this.charts = new Charts(config.charts, this.pr, this.logger);
+    this.charts = new Charts(config, this.pr, this.logger);
     this.donations = donations;
     this.version = version;
   }
